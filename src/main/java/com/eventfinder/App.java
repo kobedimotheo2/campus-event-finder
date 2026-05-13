@@ -1,3 +1,4 @@
+/*author : Motheo Kobedi  */
 package com.eventfinder;
 
 import javafx.application.Application;
