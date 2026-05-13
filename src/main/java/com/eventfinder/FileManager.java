@@ -12,8 +12,10 @@ public class FileManager {
     public static void saveEvents(List<Event> events) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_NAME))) {
             for (Event e : events) {
-                writer.write(e.getTitle() + "," + e.getDescription() + "," 
-                    + e.getCategory() + "," + e.getLocation() + "," + e.getDate());
+                String imagePath = e.getImagePath() == null ? "none" : e.getImagePath();
+                writer.write(e.getTitle() + "," + e.getDescription() + ","
+                    + e.getCategory() + "," + e.getLocation() + ","
+                    + e.getDate() + "," + imagePath);
                 writer.newLine();
             }
         } catch (IOException e) {
@@ -24,20 +26,21 @@ public class FileManager {
     public static List<Event> loadEvents() {
         List<Event> events = new ArrayList<>();
         File file = new File(FILE_NAME);
-
         if (!file.exists()) return events;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(FILE_NAME))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
-                if (parts.length == 5) {
+                if (parts.length >= 5) {
                     String title = parts[0];
                     String description = parts[1];
                     String category = parts[2];
                     String location = parts[3];
                     LocalDate date = LocalDate.parse(parts[4]);
-                    events.add(new Event(title, description, category, location, date));
+                    String imagePath = parts.length == 6 && !parts[5].equals("none")
+                        ? parts[5] : null;
+                    events.add(new Event(title, description, category, location, date, imagePath));
                 }
             }
         } catch (IOException e) {
