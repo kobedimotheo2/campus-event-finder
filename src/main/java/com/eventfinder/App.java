@@ -37,7 +37,6 @@ public class App extends Application {
         this.mainStage = stage;
         events.addAll(FileManager.loadEvents());
 
-        // --- MODERN PASSCODE SCREEN ---
         Stage loginStage = new Stage();
         loginStage.initStyle(StageStyle.UNDECORATED);
 
@@ -117,6 +116,38 @@ public class App extends Application {
 
     private void showMainApp() {
 
+        // --- STARTUP NOTIFICATIONS ---
+        long upcomingCount = events.stream()
+            .filter(e -> {
+                long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), e.getDate());
+                return days >= 0 && days <= 7;
+            })
+            .count();
+
+        if (upcomingCount > 0) {
+            String eventWord = upcomingCount == 1 ? "event" : "events";
+            StringBuilder upcoming = new StringBuilder();
+            events.stream()
+                .filter(e -> {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), e.getDate());
+                    return days >= 0 && days <= 7;
+                })
+                .sorted(Comparator.comparing(Event::getDate))
+                .forEach(e -> {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), e.getDate());
+                    String when = days == 0 ? "TODAY" : "in " + days + " day(s)";
+                    upcoming.append("• ").append(e.getTitle())
+                            .append(" @ ").append(e.getLocation())
+                            .append(" — ").append(when).append("\n");
+                });
+
+            Alert notification = new Alert(Alert.AlertType.INFORMATION);
+            notification.setTitle("📅 Upcoming Events");
+            notification.setHeaderText("⚡ You have " + upcomingCount + " upcoming " + eventWord + " this week!");
+            notification.setContentText(upcoming.toString());
+            notification.show();
+        }
+
         // --- HEADER ---
         Label title = new Label("🎓 UB Campus Event Finder");
         title.setFont(Font.font("Arial", FontWeight.BOLD, 24));
@@ -131,66 +162,24 @@ public class App extends Application {
         header.setPadding(new Insets(20, 30, 20, 30));
         header.setStyle("-fx-background-color: #1e1e2e;");
 
-        // --- FORM FIELDS ---
-        TextField titleField = new TextField();
-        titleField.setPromptText("e.g. Career Fair");
-        styleTextField(titleField);
-        titleField.setDisable(!isAdmin);
-
-        TextField descField = new TextField();
-        descField.setPromptText("e.g. Meet top employers");
-        styleTextField(descField);
-        descField.setDisable(!isAdmin);
-
-        TextField locationField = new TextField();
-        locationField.setPromptText("e.g. Main Hall");
-        styleTextField(locationField);
-        locationField.setDisable(!isAdmin);
-
-        ComboBox<String> categoryBox = new ComboBox<>();
-        categoryBox.getItems().addAll("Academic", "Sports", "Social", "Career", "Other");
-        categoryBox.setPromptText("Select category");
-        categoryBox.setStyle("-fx-background-color: #2a2a3e; -fx-text-fill: white; -fx-border-color: #44475a; -fx-border-radius: 6; -fx-background-radius: 6;");
-        categoryBox.setMaxWidth(Double.MAX_VALUE);
-        categoryBox.setDisable(!isAdmin);
-
-        DatePicker datePicker = new DatePicker();
-        datePicker.setPromptText("Select date");
-        datePicker.setStyle("-fx-background-color: #2a2a3e; -fx-text-fill: white;");
-        datePicker.setMaxWidth(Double.MAX_VALUE);
-        datePicker.setDisable(!isAdmin);
-
-        // --- IMAGE PICKER ---
-        Label imagePathLabel = new Label("No image selected");
-        imagePathLabel.setTextFill(Color.web("#6272a4"));
-        imagePathLabel.setFont(Font.font("Arial", 11));
-
-        Button imagePickerBtn = new Button("🖼 Upload Image");
-        imagePickerBtn.setStyle("-fx-background-color: #44475a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14; -fx-background-radius: 8; -fx-cursor: hand;");
-        imagePickerBtn.setDisable(!isAdmin);
-        imagePickerBtn.setOnAction(e -> {
-            FileChooser fileChooser = new FileChooser();
-            fileChooser.setTitle("Select Event Image");
-            fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
-            );
-            File file = fileChooser.showOpenDialog(mainStage);
-            if (file != null) {
-                selectedImagePath = file.getAbsolutePath();
-                imagePathLabel.setText("✅ " + file.getName());
-                imagePathLabel.setTextFill(Color.web("#50fa7b"));
-            }
-        });
-
-        HBox imagePicker = new HBox(10, imagePickerBtn, imagePathLabel);
-        imagePicker.setAlignment(Pos.CENTER_LEFT);
-
         // --- FILTERED + SORTED LIST ---
         FilteredList<Event> filteredEvents = new FilteredList<>(events, p -> true);
         SortedList<Event> sortedEvents = new SortedList<>(filteredEvents,
             Comparator.comparing(Event::getDate));
 
-        // --- SEARCH FIELD ---
+        // --- FORM ---
+        GridPane form = new GridPane();
+        form.setHgap(15);
+        form.setVgap(12);
+        form.setPadding(new Insets(25));
+        form.setStyle("-fx-background-color: #282a36; -fx-background-radius: 12;");
+
+        ColumnConstraints col1 = new ColumnConstraints(110);
+        ColumnConstraints col2 = new ColumnConstraints();
+        col2.setHgrow(Priority.ALWAYS);
+        form.getColumnConstraints().addAll(col1, col2);
+
+        // Search field visible to everyone
         TextField searchField = new TextField();
         searchField.setPromptText("🔍 Search events...");
         styleTextField(searchField);
@@ -204,6 +193,105 @@ public class App extends Application {
             });
         });
 
+        if (isAdmin) {
+            TextField titleField = new TextField();
+            titleField.setPromptText("e.g. Career Fair");
+            styleTextField(titleField);
+
+            TextField descField = new TextField();
+            descField.setPromptText("e.g. Meet top employers");
+            styleTextField(descField);
+
+            TextField locationField = new TextField();
+            locationField.setPromptText("e.g. Main Hall");
+            styleTextField(locationField);
+
+            ComboBox<String> categoryBox = new ComboBox<>();
+            categoryBox.getItems().addAll("Academic", "Sports", "Social", "Career", "Other");
+            categoryBox.setPromptText("Select category");
+            categoryBox.setStyle("-fx-background-color: #2a2a3e; -fx-text-fill: white; -fx-border-color: #44475a; -fx-border-radius: 6; -fx-background-radius: 6;");
+            categoryBox.setMaxWidth(Double.MAX_VALUE);
+
+            DatePicker datePicker = new DatePicker();
+            datePicker.setPromptText("Select date");
+            datePicker.setStyle("-fx-background-color: #2a2a3e; -fx-text-fill: white;");
+            datePicker.setMaxWidth(Double.MAX_VALUE);
+
+            Label imagePathLabel = new Label("No image selected");
+            imagePathLabel.setTextFill(Color.web("#6272a4"));
+            imagePathLabel.setFont(Font.font("Arial", 11));
+
+            Button imagePickerBtn = new Button("🖼 Upload Image");
+            imagePickerBtn.setStyle("-fx-background-color: #44475a; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14; -fx-background-radius: 8; -fx-cursor: hand;");
+            imagePickerBtn.setOnAction(e -> {
+                FileChooser fileChooser = new FileChooser();
+                fileChooser.setTitle("Select Event Image");
+                fileChooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+                );
+                File file = fileChooser.showOpenDialog(mainStage);
+                if (file != null) {
+                    selectedImagePath = file.getAbsolutePath();
+                    imagePathLabel.setText("✅ " + file.getName());
+                    imagePathLabel.setTextFill(Color.web("#50fa7b"));
+                }
+            });
+
+            HBox imagePicker = new HBox(10, imagePickerBtn, imagePathLabel);
+            imagePicker.setAlignment(Pos.CENTER_LEFT);
+
+            Button addButton = new Button("+ Add Event");
+            addButton.setStyle("-fx-background-color: #6272a4; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;");
+            addButton.setMaxWidth(Double.MAX_VALUE);
+
+            form.add(makeLabel("Title"), 0, 0);
+            form.add(titleField, 1, 0);
+            form.add(makeLabel("Description"), 0, 1);
+            form.add(descField, 1, 1);
+            form.add(makeLabel("Location"), 0, 2);
+            form.add(locationField, 1, 2);
+            form.add(makeLabel("Category"), 0, 3);
+            form.add(categoryBox, 1, 3);
+            form.add(makeLabel("Date"), 0, 4);
+            form.add(datePicker, 1, 4);
+            form.add(makeLabel("Image"), 0, 5);
+            form.add(imagePicker, 1, 5);
+            form.add(makeLabel("Search"), 0, 6);
+            form.add(searchField, 1, 6);
+            form.add(addButton, 1, 7);
+
+            addButton.setOnAction(e -> {
+                String eventTitle = titleField.getText();
+                String desc = descField.getText();
+                String location = locationField.getText();
+                String category = categoryBox.getValue();
+                LocalDate date = datePicker.getValue();
+
+                if (eventTitle.isEmpty() || desc.isEmpty() || location.isEmpty()
+                        || category == null || date == null) {
+                    showAlert("Please fill in all fields.");
+                    return;
+                }
+
+                events.add(new Event(eventTitle, desc, category, location, date, selectedImagePath));
+                FileManager.saveEvents(events);
+
+                titleField.clear();
+                descField.clear();
+                locationField.clear();
+                categoryBox.setValue(null);
+                datePicker.setValue(null);
+                selectedImagePath = null;
+                imagePathLabel.setText("No image selected");
+                imagePathLabel.setTextFill(Color.web("#6272a4"));
+            });
+
+        } else {
+            // View only — search only
+            form.add(makeLabel("Search"), 0, 0);
+            form.add(searchField, 1, 0);
+        }
+
         // --- CATEGORY FILTER ---
         ComboBox<String> filterBox = new ComboBox<>();
         filterBox.getItems().addAll("All", "Academic", "Sports", "Social", "Career", "Other");
@@ -216,39 +304,6 @@ public class App extends Application {
                 return event.getCategory().equals(selected);
             });
         });
-
-        Button addButton = new Button("+ Add Event");
-        addButton.setStyle("-fx-background-color: #6272a4; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;");
-        addButton.setMaxWidth(Double.MAX_VALUE);
-        addButton.setDisable(!isAdmin);
-
-        // --- FORM LAYOUT ---
-        GridPane form = new GridPane();
-        form.setHgap(15);
-        form.setVgap(12);
-        form.setPadding(new Insets(25));
-        form.setStyle("-fx-background-color: #282a36; -fx-background-radius: 12;");
-
-        form.add(makeLabel("Title"), 0, 0);
-        form.add(titleField, 1, 0);
-        form.add(makeLabel("Description"), 0, 1);
-        form.add(descField, 1, 1);
-        form.add(makeLabel("Location"), 0, 2);
-        form.add(locationField, 1, 2);
-        form.add(makeLabel("Category"), 0, 3);
-        form.add(categoryBox, 1, 3);
-        form.add(makeLabel("Date"), 0, 4);
-        form.add(datePicker, 1, 4);
-        form.add(makeLabel("Image"), 0, 5);
-        form.add(imagePicker, 1, 5);
-        form.add(makeLabel("Search"), 0, 6);
-        form.add(searchField, 1, 6);
-        form.add(addButton, 1, 7);
-
-        ColumnConstraints col1 = new ColumnConstraints(110);
-        ColumnConstraints col2 = new ColumnConstraints();
-        col2.setHgrow(Priority.ALWAYS);
-        form.getColumnConstraints().addAll(col1, col2);
 
         // --- TABLE ---
         TableView<Event> table = new TableView<>();
@@ -296,8 +351,7 @@ public class App extends Application {
                     setStyle("");
                 } else {
                     setText(item.toString());
-                    long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(
-                        LocalDate.now(), item);
+                    long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), item);
                     if (daysUntil >= 0 && daysUntil <= 7) {
                         setStyle("-fx-text-fill: #ffb86c; -fx-font-weight: bold; -fx-alignment: CENTER;");
                     } else if (daysUntil < 0) {
@@ -450,41 +504,13 @@ public class App extends Application {
         pastLegend.setTextFill(Color.web("#6272a4"));
         pastLegend.setFont(Font.font("Arial", FontWeight.BOLD, 12));
 
-        HBox filterBar = new HBox(10, makeLabel("Filter:"), filterBox,
-            upcomingLegend, pastLegend);
+        HBox filterBar = new HBox(10, makeLabel("Filter:"), filterBox, upcomingLegend, pastLegend);
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
         HBox bottomBar = new HBox(20, filterBar, editButton, deleteButton);
         bottomBar.setAlignment(Pos.CENTER_LEFT);
         bottomBar.setPadding(new Insets(15, 25, 15, 25));
         bottomBar.setStyle("-fx-background-color: #1e1e2e;");
-
-        // --- ADD BUTTON LOGIC ---
-        addButton.setOnAction(e -> {
-            String eventTitle = titleField.getText();
-            String desc = descField.getText();
-            String location = locationField.getText();
-            String category = categoryBox.getValue();
-            LocalDate date = datePicker.getValue();
-
-            if (eventTitle.isEmpty() || desc.isEmpty() || location.isEmpty()
-                    || category == null || date == null) {
-                showAlert("Please fill in all fields.");
-                return;
-            }
-
-            events.add(new Event(eventTitle, desc, category, location, date, selectedImagePath));
-            FileManager.saveEvents(events);
-
-            titleField.clear();
-            descField.clear();
-            locationField.clear();
-            categoryBox.setValue(null);
-            datePicker.setValue(null);
-            selectedImagePath = null;
-            imagePathLabel.setText("No image selected");
-            imagePathLabel.setTextFill(Color.web("#6272a4"));
-        });
 
         VBox root = new VBox(header, form, table, hintLabel, bottomBar);
         root.setStyle("-fx-background-color: #1e1e2e;");
@@ -507,7 +533,6 @@ public class App extends Application {
             default -> "#bd93f9";
         };
 
-        // --- BACK BUTTON ---
         Button backButton = new Button("← Back");
         backButton.setStyle("-fx-background-color: #44475a; -fx-text-fill: white; " +
             "-fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 8; -fx-cursor: hand;");
@@ -518,37 +543,34 @@ public class App extends Application {
         topBar.setStyle("-fx-background-color: #1e1e2e;");
 
         // --- EVENT IMAGE WITH GRADIENT FADE ---
-StackPane imageSection = new StackPane();
-if (event.getImagePath() != null) {
-    try {
-        Image img = new Image("file:///" + event.getImagePath().replace("\\", "/"));
-        ImageView imageView = new ImageView(img);
-        imageView.setFitWidth(750);
-        imageView.setFitHeight(250);
-        imageView.setPreserveRatio(false);
+        StackPane imageSection = new StackPane();
+        if (event.getImagePath() != null) {
+            try {
+                Image img = new Image("file:///" + event.getImagePath().replace("\\", "/"));
+                ImageView imageView = new ImageView(img);
+                imageView.setFitWidth(750);
+                imageView.setFitHeight(250);
+                imageView.setPreserveRatio(false);
 
-        // Gradient overlay that fades image into background
-        Region gradientOverlay = new Region();
-        gradientOverlay.setPrefWidth(750);
-        gradientOverlay.setPrefHeight(250);
-        gradientOverlay.setStyle(
-            "-fx-background-color: linear-gradient(" +
-            "from 0% 0% to 0% 100%, " +
-            "transparent 0%, " +
-            "transparent 40%, " +
-            "rgba(30,30,46,0.6) 70%, " +
-            "rgba(30,30,46,1.0) 100%" +
-            ");"
-        );
+                Region gradientOverlay = new Region();
+                gradientOverlay.setPrefWidth(750);
+                gradientOverlay.setPrefHeight(250);
+                gradientOverlay.setStyle(
+                    "-fx-background-color: linear-gradient(" +
+                    "from 0% 0% to 0% 100%, " +
+                    "transparent 0%, " +
+                    "transparent 40%, " +
+                    "rgba(30,30,46,0.6) 70%, " +
+                    "rgba(30,30,46,1.0) 100%" +
+                    ");"
+                );
 
-        imageSection.getChildren().addAll(imageView, gradientOverlay);
+                imageSection.getChildren().addAll(imageView, gradientOverlay);
+            } catch (Exception e) {
+                // image failed to load
+            }
+        }
 
-    } catch (Exception e) {
-        // image failed to load skip
-    }
-}
-
-        // --- TITLE SECTION ---
         Label eventIcon = new Label("📌");
         eventIcon.setFont(Font.font("Arial", 48));
 
@@ -566,9 +588,7 @@ if (event.getImagePath() != null) {
         titleSection.setPadding(new Insets(20, 30, 20, 30));
         titleSection.setStyle("-fx-background-color: #1e1e2e;");
 
-        // --- COUNTDOWN ---
-        long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(
-            LocalDate.now(), event.getDate());
+        long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), event.getDate());
 
         String countdownText;
         String countdownColor;
@@ -591,7 +611,44 @@ if (event.getImagePath() != null) {
         countdown.setTextFill(Color.web(countdownColor));
         countdown.setPadding(new Insets(5, 30, 5, 30));
 
-        // --- DETAIL CARDS ---
+        // --- SHARE BUTTON ---
+        Button shareButton = new Button("📤 Share Event");
+        shareButton.setStyle("-fx-background-color: #6272a4; -fx-text-fill: white; " +
+            "-fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 8; -fx-cursor: hand;");
+        shareButton.setOnAction(e -> {
+            String shareText = "🎓 *" + event.getTitle() + "*\n" +
+                "📅 Date: " + event.getDate() + "\n" +
+                "📍 Location: " + event.getLocation() + "\n" +
+                "🏷 Category: " + event.getCategory() + "\n" +
+                "📝 " + event.getDescription() + "\n\n" +
+                "— UB Campus Event Finder";
+
+            javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString(shareText);
+            clipboard.setContent(content);
+
+            showAlert("✅ Event details copied! Paste it in WhatsApp or anywhere.");
+        });
+
+        // --- MAP BUTTON ---
+        Button mapButton = new Button("🗺 Open in Maps");
+        mapButton.setStyle("-fx-background-color: #50fa7b; -fx-text-fill: #1e1e2e; " +
+            "-fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 8; -fx-cursor: hand;");
+        mapButton.setOnAction(e -> {
+            try {
+                String query = event.getLocation().replace(" ", "+") + "+University+of+Botswana";
+                java.awt.Desktop.getDesktop().browse(
+                    new java.net.URI("https://www.google.com/maps/search/?api=1&query=" + query)
+                );
+            } catch (Exception ex) {
+                showAlert("Could not open Maps. Try manually searching: " + event.getLocation());
+            }
+        });
+
+        HBox actionButtons = new HBox(15, shareButton, mapButton);
+        actionButtons.setPadding(new Insets(10, 30, 10, 30));
+
         VBox detailBox = new VBox(15,
             detailCard("📅 Date", event.getDate().toString()),
             detailCard("📍 Location", event.getLocation()),
@@ -601,7 +658,7 @@ if (event.getImagePath() != null) {
         detailBox.setStyle("-fx-background-color: #1e1e2e;");
 
         ScrollPane scrollPane = new ScrollPane();
-        VBox content = new VBox(topBar, imageSection, titleSection, countdown, detailBox);
+        VBox content = new VBox(topBar, imageSection, titleSection, countdown, actionButtons, detailBox);
         content.setStyle("-fx-background-color: #1e1e2e;");
         scrollPane.setContent(content);
         scrollPane.setFitToWidth(true);
